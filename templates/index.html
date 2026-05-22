@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Автоматизация геймдизайна</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="page">
+    <aside class="sidebar">
+        <h1>Геймдизайн и большие языковые модели</h1>
+        <p class="muted">
+            Демонстрационное веб-приложение для просмотра заданий, аналогов, документов и итоговой аналитики.
+        </p>
+
+        <div class="panel">
+            <h2>Фильтры заданий</h2>
+            <label>Жанр</label>
+            <select id="genreFilter">
+                <option value="">Все жанры</option>
+                {% for item in filters.genres %}
+                <option value="{{ item }}">{{ item }}</option>
+                {% endfor %}
+            </select>
+
+            <label>Семейство платформ</label>
+            <select id="platformFilter">
+                <option value="">Все платформы</option>
+                {% for item in filters.platforms %}
+                <option value="{{ item }}">{{ item }}</option>
+                {% endfor %}
+            </select>
+
+            <label>Поисковая строка</label>
+            <input id="taskSearch" type="text" placeholder="Название игры или фрагмент задания">
+
+            <button id="reloadTasksBtn" class="btn">Обновить список</button>
+        </div>
+
+        <div class="panel">
+            <h2>Задания</h2>
+            <div id="taskList" class="task-list"></div>
+        </div>
+    </aside>
+
+    <main class="content">
+        <section class="hero">
+            <div>
+                <h2>Итоговые сводные показатели</h2>
+                <p class="muted">
+                    Ниже выводятся основные результаты эксперимента и выбранное тестовое задание.
+                </p>
+            </div>
+            <div class="status-box">
+                <div><strong>Модель:</strong> {{ model_name }}</div>
+                <div>
+                    <strong>Живая генерация:</strong>
+                    {% if model_enabled %}включена{% else %}выключена{% endif %}
+                </div>
+            </div>
+        </section>
+
+        <section class="panel">
+            <h2>Сводка по способам подготовки</h2>
+            <div id="summaryCards" class="cards"></div>
+        </section>
+
+        <section class="panel">
+            <h2>Выбранное задание</h2>
+            <div id="taskInfo"></div>
+        </section>
+
+        <section class="grid-2">
+            <section class="panel">
+                <h2>Игровые аналоги</h2>
+                <div id="referencesBox"></div>
+            </section>
+
+            <section class="panel">
+                <h2>Сравнение результатов по заданию</h2>
+                <div id="comparisonBox"></div>
+            </section>
+        </section>
+
+        <section class="panel">
+            <h2>Три варианта документа</h2>
+            <div id="documentsBox" class="documents-grid"></div>
+        </section>
+
+        <section class="panel">
+            <h2>Поиск по корпусу игр</h2>
+            <div class="search-row">
+                <input id="corpusSearch" type="text" placeholder="Введите слово для поиска по корпусу">
+                <button id="corpusSearchBtn" class="btn">Искать</button>
+            </div>
+            <div id="corpusResults"></div>
+        </section>
+
+        <section class="panel">
+            <h2>Новая генерация через Proxy API</h2>
+            <p class="muted">
+                Генерация выполняется на серверной стороне по выбранному заданию.
+            </p>
+
+            <div class="form-row">
+                <label class="checkbox">
+                    <input id="useReferences" type="checkbox" checked>
+                    Использовать найденные игровые аналоги
+                </label>
+            </div>
+
+            <label>Дополнительное указание</label>
+            <textarea id="extraInstruction" rows="4" placeholder="Например: сделать замысел более реалистичным для учебного проекта"></textarea>
+
+            <button id="generateBtn" class="btn btn-primary">Сгенерировать новый документ</button>
+            <div id="generateStatus" class="muted"></div>
+            <pre id="generatedOutput" class="doc-pre"></pre>
+        </section>
+    </main>
+</div>
+
+<script>
+const state = {
+    taskId: "{{ default_task_id }}",
+    tasks: []
+};
+
+function escapeHtml(value) {
+    return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;");
+}
+
+async function getJson(url, options = {}) {
+    const response = await fetch(url, options);
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(data.error || "Ошибка запроса");
+    }
+    return data;
+}
+
+function renderSummaryCards(rows) {
+    const box = document.getElementById("summaryCards");
+    if (!rows || !rows.length) {
+        box.innerHTML = "<div class='empty'>Нет данных.</div>";
+        return;
+    }
+
+    box.innerHTML = rows.map(row => `
+        <article class="card">
+            <h3>${escapeHtml(row["Способ подготовки"] || "")}</h3>
+            <div><strong>Средняя итоговая экспертная оценка:</strong> ${escapeHtml(row["Средняя итоговая экспертная оценка"] || "")}</div>
+            <div><strong>Соответствие заданию:</strong> ${escapeHtml(row["Соответствие заданию"] || "")}</div>
+            <div><strong>Жанровая согласованность:</strong> ${escapeHtml(row["Жанровая согласованность"] || "")}</div>
+            <div><strong>Конкретность механик:</strong> ${escapeHtml(row["Конкретность механик"] || "")}</div>
+            <div><strong>Реалистичность масштаба:</strong> ${escapeHtml(row["Реалистичность масштаба"] || "")}</div>
+            <div><strong>Качество фиксации рисков:</strong> ${escapeHtml(row["Качество фиксации рисков"] || "")}</div>
+            <div><strong>Связность документа:</strong> ${escapeHtml(row["Связность документа"] || "")}</div>
+            <div><strong>Средняя длина документа:</strong> ${escapeHtml(row["Средняя длина документа, символов"] || "")}</div>
+        </article>
+    `).join("");
+}
+
+function renderTaskList(tasks) {
+    state.tasks = tasks;
+    const box = document.getElementById("taskList");
+
+    if (!tasks.length) {
+        box.innerHTML = "<div class='empty'>Ничего не найдено.</div>";
+        return;
+    }
+
+    box.innerHTML = tasks.map(task => `
+        <button class="task-item ${task.task_id === state.taskId ? 'active' : ''}" data-task-id="${escapeHtml(task.task_id)}">
+            <div class="task-title">${escapeHtml(task.source_game_name)}</div>
+            <div class="task-meta">${escapeHtml(task.anchor_genre)} · ${escapeHtml(task.platform_family)}</div>
+        </button>
+    `).join("");
+
+    document.querySelectorAll(".task-item").forEach(btn => {
+        btn.addEventListener("click", async () => {
+            state.taskId = btn.dataset.taskId;
+            renderTaskList(state.tasks);
+            await loadTask(state.taskId);
+        });
+    });
+}
+
+function renderTaskInfo(task) {
+    document.getElementById("taskInfo").innerHTML = `
+        <div class="meta-grid">
+            <div><strong>Идентификатор задания:</strong> ${escapeHtml(task.task_id)}</div>
+            <div><strong>Исходная игра:</strong> ${escapeHtml(task.source_game_name)}</div>
+            <div><strong>Главный жанр:</strong> ${escapeHtml(task.anchor_genre)}</div>
+            <div><strong>Семейство платформ:</strong> ${escapeHtml(task.platform_family)}</div>
+            <div><strong>Дополнительные жанры:</strong> ${escapeHtml(task.secondary_genres_text)}</div>
+            <div><strong>Год исходной игры:</strong> ${escapeHtml(task.release_year_valid)}</div>
+        </div>
+        <div class="brief-box">
+            <strong>Текст задания</strong>
+            <p>${escapeHtml(task.brief_text)}</p>
+        </div>
+    `;
+}
+
+function renderReferences(items) {
+    const box = document.getElementById("referencesBox");
+
+    if (!items.length) {
+        box.innerHTML = "<div class='empty'>Для этого задания аналоги не найдены.</div>";
+        return;
+    }
+
+    box.innerHTML = items.map(item => `
+        <article class="reference-card">
+            <div class="badge">Аналог ${escapeHtml(item.reference_rank)}</div>
+            <h3>${escapeHtml(item.reference_game_name)}</h3>
+            <div class="small">${escapeHtml(item.reference_anchor_genre)} · ${escapeHtml(item.reference_platform_family)} · ${escapeHtml(item.reference_release_year)}</div>
+            <div class="small"><strong>Сходство:</strong> ${escapeHtml(item.similarity_score)}</div>
+            <div class="small"><strong>Жанры:</strong> ${escapeHtml(item.reference_genres_text)}</div>
+            <p>${escapeHtml(item.reference_text_description)}</p>
+        </article>
+    `).join("");
+}
+
+function renderComparison(item) {
+    if (!item || !Object.keys(item).length) {
+        document.getElementById("comparisonBox").innerHTML = "<div class='empty'>Нет данных сравнения.</div>";
+        return;
+    }
+
+    document.getElementById("comparisonBox").innerHTML = `
+        <div class="comparison-list">
+            <div><strong>Оценка шаблонного способа:</strong> ${escapeHtml(item.template)}</div>
+            <div><strong>Оценка модели без аналогов:</strong> ${escapeHtml(item.model_without_references)}</div>
+            <div><strong>Оценка модели с аналогами:</strong> ${escapeHtml(item.model_with_references)}</div>
+            <div><strong>Прирост модели без аналогов относительно шаблона:</strong> ${escapeHtml(item.delta_model_vs_template)}</div>
+            <div><strong>Прирост модели с аналогами относительно шаблона:</strong> ${escapeHtml(item.delta_model_refs_vs_template)}</div>
+            <div><strong>Разность между двумя вариантами модели:</strong> ${escapeHtml(item.delta_refs_vs_no_refs)}</div>
+            <div><strong>Тип влияния аналогов:</strong> ${escapeHtml(item.reference_effect_group)}</div>
+        </div>
+    `;
+}
+
+function renderDocuments(items) {
+    const box = document.getElementById("documentsBox");
+
+    if (!items.length) {
+        box.innerHTML = "<div class='empty'>Документы не найдены.</div>";
+        return;
+    }
+
+    box.innerHTML = items.map(item => `
+        <article class="doc-card">
+            <h3>${escapeHtml(item.mode_label)}</h3>
+            <div class="doc-meta">
+                <div><strong>Итоговая экспертная оценка:</strong> ${escapeHtml(item.expert_total_score)}</div>
+                <div><strong>Длина:</strong> ${escapeHtml(item.text_length_chars)}</div>
+                <div><strong>Число разделов:</strong> ${escapeHtml(item.section_count)}</div>
+                <div><strong>Число аналогов:</strong> ${escapeHtml(item.reference_count)}</div>
+                <div><strong>Соответствие заданию:</strong> ${escapeHtml(item.task_fit)}</div>
+                <div><strong>Жанровая согласованность:</strong> ${escapeHtml(item.genre_fit)}</div>
+                <div><strong>Конкретность механик:</strong> ${escapeHtml(item.mechanics_specificity)}</div>
+                <div><strong>Реалистичность масштаба:</strong> ${escapeHtml(item.scope_realism)}</div>
+                <div><strong>Качество фиксации рисков:</strong> ${escapeHtml(item.risk_quality)}</div>
+                <div><strong>Связность:</strong> ${escapeHtml(item.coherence)}</div>
+            </div>
+            <pre class="doc-pre">${escapeHtml(item.generated_text)}</pre>
+        </article>
+    `).join("");
+}
+
+function renderCorpusResults(items) {
+    const box = document.getElementById("corpusResults");
+
+    if (!items.length) {
+        box.innerHTML = "<div class='empty'>Совпадения не найдены.</div>";
+        return;
+    }
+
+    box.innerHTML = items.map(item => `
+        <article class="corpus-card">
+            <h3>${escapeHtml(item.name)}</h3>
+            <div class="small">${escapeHtml(item.anchor_genre)} · ${escapeHtml(item.platform_family)} · ${escapeHtml(item.release_year_valid)}</div>
+            <div class="small"><strong>Жанры:</strong> ${escapeHtml(item.genre_names_text)}</div>
+            <p>${escapeHtml(item.text_description)}</p>
+        </article>
+    `).join("");
+}
+
+async function loadAnalytics() {
+    const data = await getJson("/api/analytics");
+    renderSummaryCards(data.final_mode_table || []);
+}
+
+async function loadTasks() {
+    const genre = document.getElementById("genreFilter").value;
+    const platform = document.getElementById("platformFilter").value;
+    const q = document.getElementById("taskSearch").value.trim();
+
+    const url = `/api/tasks?genre=${encodeURIComponent(genre)}&platform=${encodeURIComponent(platform)}&q=${encodeURIComponent(q)}`;
+    const data = await getJson(url);
+
+    renderTaskList(data.tasks || []);
+
+    if ((!state.taskId || !(data.tasks || []).some(t => t.task_id === state.taskId)) && (data.tasks || []).length) {
+        state.taskId = data.tasks[0].task_id;
+    }
+
+    if (state.taskId) {
+        await loadTask(state.taskId);
+        renderTaskList(data.tasks || []);
+    }
+}
+
+async function loadTask(taskId) {
+    const data = await getJson(`/api/task/${encodeURIComponent(taskId)}`);
+    renderTaskInfo(data.task);
+    renderReferences(data.references || []);
+    renderDocuments(data.documents || []);
+    renderComparison(data.comparison || {});
+}
+
+async function searchCorpus() {
+    const q = document.getElementById("corpusSearch").value.trim();
+    const genre = document.getElementById("genreFilter").value;
+    const platform = document.getElementById("platformFilter").value;
+
+    const url = `/api/corpus_search?q=${encodeURIComponent(q)}&genre=${encodeURIComponent(genre)}&platform=${encodeURIComponent(platform)}`;
+    const data = await getJson(url);
+    renderCorpusResults(data.results || []);
+}
+
+async function generateDocument() {
+    const status = document.getElementById("generateStatus");
+    const output = document.getElementById("generatedOutput");
+
+    output.textContent = "";
+    status.textContent = "Выполняется генерация...";
+
+    try {
+        const payload = {
+            task_id: state.taskId,
+            use_references: document.getElementById("useReferences").checked,
+            extra_instruction: document.getElementById("extraInstruction").value
+        };
+
+        const data = await getJson("/api/generate", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(payload)
+        });
+
+        status.textContent = `Генерация завершена. Модель: ${data.model_name}`;
+        output.textContent = data.generated_text || "";
+    } catch (error) {
+        status.textContent = `Ошибка: ${error.message}`;
+    }
+}
+
+document.getElementById("reloadTasksBtn").addEventListener("click", loadTasks);
+document.getElementById("corpusSearchBtn").addEventListener("click", searchCorpus);
+document.getElementById("generateBtn").addEventListener("click", generateDocument);
+
+document.addEventListener("DOMContentLoaded", async () => {
+    await loadAnalytics();
+    await loadTasks();
+});
+</script>
+</body>
+</html>
