@@ -1,0 +1,261 @@
+:root {
+    --bg: #f4f6fb;
+    --panel: #ffffff;
+    --line: #d9dfeb;
+    --text: #1f2937;
+    --muted: #6b7280;
+    --accent: #2f6fed;
+    --accent-dark: #1f56c8;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, Helvetica, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+}
+
+.page {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    min-height: 100vh;
+}
+
+.sidebar {
+    background: #eef2f9;
+    border-right: 1px solid var(--line);
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.content {
+    padding: 24px;
+    overflow-y: auto;
+}
+
+h1, h2, h3 {
+    margin-top: 0;
+}
+
+.panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 18px;
+    margin-bottom: 18px;
+}
+
+.hero {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: flex-start;
+    margin-bottom: 18px;
+}
+
+.status-box {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 14px 16px;
+    min-width: 260px;
+}
+
+.cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 14px;
+}
+
+.card,
+.reference-card,
+.corpus-card,
+.doc-card {
+    background: #fbfcff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px;
+}
+
+.doc-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.documents-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 16px;
+}
+
+.doc-meta {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+    font-size: 14px;
+}
+
+.doc-pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    background: #f7f9fd;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px;
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.5;
+    max-height: 480px;
+    overflow-y: auto;
+}
+
+label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+input[type="text"],
+select,
+textarea {
+    width: 100%;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+    font-size: 14px;
+    background: #fff;
+}
+
+.checkbox {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: normal;
+}
+
+.checkbox input {
+    width: auto;
+    margin: 0;
+}
+
+.btn {
+    border: none;
+    border-radius: 10px;
+    background: var(--accent);
+    color: white;
+    padding: 10px 14px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.btn:hover {
+    background: var(--accent-dark);
+}
+
+.btn-primary {
+    font-weight: bold;
+}
+
+.task-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.task-item {
+    text-align: left;
+    width: 100%;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: #fff;
+    padding: 10px 12px;
+    cursor: pointer;
+}
+
+.task-item.active {
+    border-color: var(--accent);
+    background: #edf3ff;
+}
+
+.task-title {
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+.task-meta,
+.small,
+.muted {
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.brief-box {
+    background: #f8faff;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px;
+}
+
+.grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+}
+
+.comparison-list {
+    display: grid;
+    gap: 10px;
+}
+
+.search-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.search-row input {
+    margin-bottom: 0;
+}
+
+.badge {
+    display: inline-block;
+    background: #edf3ff;
+    color: var(--accent-dark);
+    border-radius: 999px;
+    padding: 5px 10px;
+    font-size: 12px;
+    margin-bottom: 8px;
+}
+
+.empty {
+    color: var(--muted);
+    font-style: italic;
+}
+
+@media (max-width: 1100px) {
+    .page {
+        grid-template-columns: 1fr;
+    }
+
+    .grid-2 {
+        grid-template-columns: 1fr;
+    }
+
+    .hero {
+        flex-direction: column;
+    }
+}
